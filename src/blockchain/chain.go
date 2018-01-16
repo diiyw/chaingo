@@ -8,7 +8,7 @@ import (
 const (
 	tipKey              = "tip"
 	dbDir               = "data"
-	genesisCoinbaseData = "The Times 03/Jan/2009 Chancellor on brink of second bailout for world"
+	genesisCoinbaseData = "The Times 16/Jan/2018 Chancellor on brink of second bailout for world"
 )
 
 type Chain struct {
@@ -18,12 +18,11 @@ type Chain struct {
 
 // 创建区块链
 func CreateChain(address string) *Chain {
-	// 创建链文件
+	// 创建链数据库
 	db, err := leveldb.OpenFile(dbDir, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer db.Close()
 	err = db.Put([]byte(tipKey), nil, nil)
 	if err != nil {
 		log.Fatal(err)
@@ -48,7 +47,6 @@ func OpenChain() *Chain {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer db.Close()
 	prevHash, err := db.Get([]byte(tipKey), nil)
 	if err != nil {
 		log.Fatal("Database was destroyed.")
@@ -61,6 +59,7 @@ func OpenChain() *Chain {
 
 // 添加区块到链中
 func (c *Chain) AppendBlock(b *Block) error {
+	// 存在区块不添加
 	if exits, _ := c.db.Has(b.Hash, nil); exits {
 		return nil
 	}
@@ -70,14 +69,13 @@ func (c *Chain) AppendBlock(b *Block) error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// 原本的最新哈希值
+	// 最新哈希值
 	tipHash, err := c.db.Get([]byte(tipKey), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
-	// 取出区块的数据
-	tipBlockData, err := c.db.Get(tipHash, nil)
-	tipBlock := DeserializeBlock(tipBlockData)
+	// 取出最新区块的数据
+	tipBlock := c.GetBlockByHash(tipHash)
 	// 需要添加区块高度比当前区块的高度大（新区块）
 	if b.Height > tipBlock.Height {
 		// 更新区块链的最新哈希值
@@ -89,6 +87,15 @@ func (c *Chain) AppendBlock(b *Block) error {
 	}
 
 	return nil
+}
+
+// 通过区块的哈希值获取区块
+func (c *Chain) GetBlockByHash(hash []byte) *Block {
+	blockData, err := c.db.Get(hash, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return DeserializeBlock(blockData)
 }
 
 // 关闭链

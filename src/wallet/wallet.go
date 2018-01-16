@@ -17,8 +17,13 @@ import (
 const (
 	version            = 0x01
 	AddressChecksumLen = 4
-	walletFile         = "wallet.dat"
+	walletFile         = "wallets.dat"
 )
+
+// 所有钱包
+type Wallets struct {
+	Sets map[string]*Wallet
+}
 
 // 钱包，存储公钥和私钥
 type Wallet struct {
@@ -28,14 +33,20 @@ type Wallet struct {
 }
 
 // 新建钱包
-func NewWallet() *Wallet {
+func NewWallets() *Wallets {
 	if _, err := os.Stat(walletFile); os.IsNotExist(err) {
-		return newWallet()
+		w := NewWallet()
+		return &Wallets{
+			Sets: map[string]*Wallet{
+				w.GetAddress(): w,
+			},
+		}
 	}
-	return loadWallet()
+	return LoadWallets()
 }
 
-func newWallet() *Wallet {
+// 新建钱包
+func NewWallet() *Wallet {
 	// 生成私钥和公钥
 	private, public := newKeyPair()
 	w := Wallet{
@@ -52,7 +63,6 @@ func newWallet() *Wallet {
 	fullPayload := append(versionedPayload, checksum...)
 	// 以可读的形式base58编码
 	w.Address = core.Base58Encode(fullPayload)
-	w.Storage()
 	return &w
 }
 
@@ -62,29 +72,29 @@ func (w Wallet) GetAddress() string {
 }
 
 // 从文件加载钱包
-func loadWallet() *Wallet {
+func LoadWallets() *Wallets {
 	if _, err := os.Stat(walletFile); os.IsNotExist(err) {
-		log.Panic(err)
+		log.Fatal(err)
 	}
 
 	ctn, err := ioutil.ReadFile(walletFile)
 	if err != nil {
-		log.Panic(err)
+		log.Fatal(err)
 	}
 
-	var w Wallet
+	var w Wallets
 	gob.Register(elliptic.P256())
 	decoder := gob.NewDecoder(bytes.NewReader(ctn))
 	err = decoder.Decode(&w)
 	if err != nil {
-		log.Panic(err)
+		log.Fatal(err)
 	}
 
 	return &w
 }
 
 // 保存钱包到文件
-func (w Wallet) Storage() {
+func (w Wallets) Storage() {
 	var content bytes.Buffer
 
 	gob.Register(elliptic.P256())
@@ -92,12 +102,12 @@ func (w Wallet) Storage() {
 	encoder := gob.NewEncoder(&content)
 	err := encoder.Encode(w)
 	if err != nil {
-		log.Panic(err)
+		log.Fatal(err)
 	}
 
 	err = ioutil.WriteFile(walletFile, content.Bytes(), 0644)
 	if err != nil {
-		log.Panic(err)
+		log.Fatal(err)
 	}
 }
 
@@ -109,7 +119,7 @@ func HashPubKey(pubKey []byte) []byte {
 	RIPEMD160Hasher := ripemd160.New()
 	_, err := RIPEMD160Hasher.Write(publicSHA256[:])
 	if err != nil {
-		log.Panic(err)
+		log.Fatal(err)
 	}
 	// 通过RIPEMD160算法得出的公钥
 	publicRIPEMD160 := RIPEMD160Hasher.Sum(nil)
@@ -141,7 +151,7 @@ func newKeyPair() (ecdsa.PrivateKey, []byte) {
 	curve := elliptic.P256()
 	private, err := ecdsa.GenerateKey(curve, rand.Reader)
 	if err != nil {
-		log.Panic(err)
+		log.Fatal(err)
 	}
 	pubKey := append(private.PublicKey.X.Bytes(), private.PublicKey.Y.Bytes()...)
 

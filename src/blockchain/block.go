@@ -12,7 +12,7 @@ import (
 // 区块
 type Block struct {
 	PrevHash     []byte         // 上一个区块的哈希值
-	Timestamp    int64          // 区块创建时间
+	Timestamp    time.Time      // 区块创建时间
 	Hash         []byte         // 区块哈希
 	Nonce        int            // 当前计数器（挖矿使用）
 	Height       int            // 当前区块高度
@@ -20,16 +20,17 @@ type Block struct {
 }
 
 // 创建区块
-func NewBlock(prevHash []byte) *Block {
+func NewBlock(prevHash []byte, height int) *Block {
 	return &Block{
 		PrevHash:  prevHash,
-		Timestamp: time.Now().Unix(),
+		Timestamp: time.Now(),
+		Height:    height,
 	}
 }
 
 // 创建创世块
 func NewGenesisBlock(address string) *Block {
-	block := NewBlock(nil)
+	block := NewBlock(nil, 0)
 	block.mineBlock([]*Transaction{NewCoinbaseTx(address, genesisCoinbaseData)})
 	return block
 }
@@ -37,8 +38,9 @@ func NewGenesisBlock(address string) *Block {
 func (b *Block) mineBlock(txs []*Transaction) {
 	b.Transactions = txs
 	pow := proof.NewPow()
-	_, hash := pow.Mining(b.Ore())
+	nonce, hash := pow.Mining(b.Ore())
 	b.Hash = hash
+	b.Nonce = nonce
 }
 
 // 提供给挖矿的数据
@@ -48,7 +50,7 @@ func (b *Block) Ore() []byte {
 		txBytes [][]byte
 	)
 	payload.Write(b.PrevHash)
-	payload.Write(core.I64Hex(b.Timestamp))
+	payload.Write(core.I64Hex(b.Timestamp.Unix()))
 	for _, tx := range b.Transactions {
 		txBytes = append(txBytes, tx.Serialize())
 	}

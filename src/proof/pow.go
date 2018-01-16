@@ -14,7 +14,7 @@ var (
 )
 
 // 难度系数
-const targetBits = 24
+const targetBits = 16
 
 type Pow struct {
 	target *big.Int
@@ -51,9 +51,6 @@ func (pow Pow) Mining(data []byte) (int, []byte) {
 		data = pow.prepareData(data, nonce)
 
 		hash = sha256.Sum256(data)
-		if math.Remainder(float64(nonce), 100000) == 0 {
-			fmt.Printf("new block:%x", hash)
-		}
 		hashInt.SetBytes(hash[:])
 
 		if hashInt.Cmp(pow.target) == -1 {
