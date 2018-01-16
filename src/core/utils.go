@@ -7,7 +7,7 @@ import (
 )
 
 // 整型转换到字节
-func i64Hex(num int64) []byte {
+func I64Hex(num int64) []byte {
 	buff := new(bytes.Buffer)
 	err := binary.Write(buff, binary.BigEndian, num)
 	if err != nil {

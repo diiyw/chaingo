@@ -9,11 +9,15 @@ import (
 	"crypto/elliptic"
 	"core"
 	"crypto/rand"
+	"encoding/gob"
+	"os"
+	"io/ioutil"
 )
 
 const (
 	version            = 0x01
 	AddressChecksumLen = 4
+	walletFile         = "wallet.dat"
 )
 
 // 钱包，存储公钥和私钥
@@ -25,6 +29,13 @@ type Wallet struct {
 
 // 新建钱包
 func NewWallet() *Wallet {
+	if _, err := os.Stat(walletFile); os.IsNotExist(err) {
+		return newWallet()
+	}
+	return loadWallet()
+}
+
+func newWallet() *Wallet {
 	// 生成私钥和公钥
 	private, public := newKeyPair()
 	w := Wallet{
@@ -41,12 +52,53 @@ func NewWallet() *Wallet {
 	fullPayload := append(versionedPayload, checksum...)
 	// 以可读的形式base58编码
 	w.Address = core.Base58Encode(fullPayload)
+	w.Storage()
 	return &w
 }
 
 // 获取钱包地址 base58(版本号+公钥+校验码)
 func (w Wallet) GetAddress() string {
 	return string(w.Address)
+}
+
+// 从文件加载钱包
+func loadWallet() *Wallet {
+	if _, err := os.Stat(walletFile); os.IsNotExist(err) {
+		log.Panic(err)
+	}
+
+	ctn, err := ioutil.ReadFile(walletFile)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	var w Wallet
+	gob.Register(elliptic.P256())
+	decoder := gob.NewDecoder(bytes.NewReader(ctn))
+	err = decoder.Decode(&w)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	return &w
+}
+
+// 保存钱包到文件
+func (w Wallet) Storage() {
+	var content bytes.Buffer
+
+	gob.Register(elliptic.P256())
+
+	encoder := gob.NewEncoder(&content)
+	err := encoder.Encode(w)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	err = ioutil.WriteFile(walletFile, content.Bytes(), 0644)
+	if err != nil {
+		log.Panic(err)
+	}
 }
 
 // 获取公钥哈希值
