@@ -36,11 +36,13 @@ type Wallet struct {
 func NewWallets() *Wallets {
 	if _, err := os.Stat(walletFile); os.IsNotExist(err) {
 		w := NewWallet()
-		return &Wallets{
+		ws := &Wallets{
 			Sets: map[string]*Wallet{
 				w.GetAddress(): w,
 			},
 		}
+		ws.Storage()
+		return ws
 	}
 	return LoadWallets()
 }
@@ -73,7 +75,8 @@ func (w Wallet) GetAddress() string {
 
 // 获取钱包公钥
 func (w Wallet) GetPubKey() []byte {
-	return w.Address[1: len(w.Address)-AddressChecksumLen]
+	pubKeyHash := core.Base58Decode(w.Address)
+	return pubKeyHash[1: len(pubKeyHash)-AddressChecksumLen]
 }
 
 // 从文件加载钱包

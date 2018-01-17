@@ -8,6 +8,7 @@ import (
 	"log"
 	"github.com/syndtr/goleveldb/leveldb"
 	"encoding/hex"
+	"crypto/sha256"
 )
 
 const (
@@ -16,9 +17,20 @@ const (
 )
 
 type Transaction struct {
-	Id  []byte     // 交易的hash值
-	In  []TXInput  // 交易的所有收入(指明引用了哪个支出)
-	Out []TXOutput // 交易的所有支出
+	Id      []byte    // 交易的hash值
+	Inputs  []TXInput // 交易的所有收入(指明引用了哪个支出)
+	Outputs TXOutputs // 交易的所有支出
+}
+
+func (tx *Transaction) Hash() []byte {
+	var hash [32]byte
+
+	txCopy := *tx
+	txCopy.Id = []byte{}
+
+	hash = sha256.Sum256(txCopy.Serialize())
+
+	return hash[:]
 }
 
 // 创建coinbase交易
@@ -26,11 +38,16 @@ func NewCoinbaseTx(to, data string) *Transaction {
 	utxoSet := NewUTXOSet()
 	defer utxoSet.Close()
 	tx := &Transaction{
-		Id:  []byte{},
-		In:  []TXInput{{[]byte{}, -1, nil, []byte(data)}},
-		Out: []TXOutput{*NewTXOutput(subsidy, to)},
+		Id:     []byte{},
+		Inputs: []TXInput{{[]byte{}, -1, nil, []byte(data)}},
+		Outputs: TXOutputs{
+			[]TXOutput{
+				*NewTXOutput(subsidy, to),
+			},
+		},
 	}
-	utxoSet.Add(tx)
+	tx.Id = tx.Hash()
+	utxoSet.AddTXOutputs(tx)
 	return tx
 }
 
@@ -61,7 +78,7 @@ type TXOutput struct {
 
 // 输出签名（锁定）
 func (out *TXOutput) Lock(address []byte) {
-	pubKeyHash := core.Base58Encode(address)
+	pubKeyHash := core.Base58Decode(address)
 	// 地址的0位是版本号去掉，最后4位是校验位也去掉
 	pubKeyHash = pubKeyHash[1: len(pubKeyHash)-wallet.AddressChecksumLen]
 	out.PubKeyHash = pubKeyHash
@@ -127,7 +144,7 @@ func NewUTXOSet() UTXOSet {
 	}
 }
 
-// 找到所有可用的UTXO
+// 找到所有可用的UTXO（获取余额）
 func (u UTXOSet) FindSpendableUTXO(pubKeyHash []byte, amount int) (int, map[string][]int) {
 	var (
 		unspentOutputs = make(map[string][]int)
@@ -142,6 +159,7 @@ func (u UTXOSet) FindSpendableUTXO(pubKeyHash []byte, amount int) (int, map[stri
 		for outIdx, out := range outputs.Outputs {
 			if out.IsLockedWithKey(pubKeyHash) && balance < amount {
 				balance += out.V
+				// outIdx是未花费掉的支出索引
 				unspentOutputs[txID] = append(unspentOutputs[txID], outIdx)
 			}
 		}
@@ -151,6 +169,6 @@ func (u UTXOSet) FindSpendableUTXO(pubKeyHash []byte, amount int) (int, map[stri
 }
 
 // 添加花费的支出（没有就创建）
-func (u UTXOSet) Add(tx *Transaction) {
-	u.Put(tx.Id, tx.Serialize(), nil)
+func (u UTXOSet) AddTXOutputs(tx *Transaction) {
+	u.Put(tx.Id, tx.Outputs.Serialize(), nil)
 }

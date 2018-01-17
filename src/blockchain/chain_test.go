@@ -7,9 +7,12 @@ import (
 )
 
 func TestCreateChain(t *testing.T) {
-	w := wallet.NewWallet()
-	c := CreateChain(w.GetAddress())
-	c.Close()
+	ws := wallet.NewWallets()
+	for addr, w := range ws.Sets {
+		fmt.Println("Mining to: " + w.GetAddress())
+		c := CreateChain(addr)
+		c.Close()
+	}
 }
 
 func TestOpenChain(t *testing.T) {
@@ -24,6 +27,6 @@ func TestChain_GetBlockByHash(t *testing.T) {
 	block := c.GetBlock(c.prevHash)
 	fmt.Printf("Nonce:  %d\n", block.Nonce)
 	fmt.Printf("Heigth: %d\n", block.Height)
-	fmt.Printf("Hash:   %x\n", block.Hash)
+	fmt.Printf("BlockHash:  %x\n", block.Hash)
 	fmt.Printf("Timestamp:  %s\n", block.Timestamp)
 }
