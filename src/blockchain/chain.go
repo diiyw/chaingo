@@ -3,23 +3,25 @@ package blockchain
 import (
 	"log"
 	"github.com/syndtr/goleveldb/leveldb"
+	"bytes"
+	"errors"
 )
 
 const (
 	tipKey              = "tip"
-	dbDir               = "data"
+	blocks              = "data/blocks"
 	genesisCoinbaseData = "The Times 16/Jan/2018 Chancellor on brink of second bailout for world"
 )
 
 type Chain struct {
+	*leveldb.DB
 	prevHash []byte // 最靠前的区块哈希值
-	db       *leveldb.DB
 }
 
 // 创建区块链
 func CreateChain(address string) *Chain {
 	// 创建链数据库
-	db, err := leveldb.OpenFile(dbDir, nil)
+	db, err := leveldb.OpenFile(blocks, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -37,13 +39,13 @@ func CreateChain(address string) *Chain {
 	db.Put(block.Hash, block.Serialize(), nil)
 	return &Chain{
 		prevHash: block.Hash,
-		db:       db,
+		DB:       db,
 	}
 }
 
 // 打开区块链
 func OpenChain() *Chain {
-	db, err := leveldb.OpenFile(dbDir, nil)
+	db, err := leveldb.OpenFile(blocks, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -53,33 +55,33 @@ func OpenChain() *Chain {
 	}
 	return &Chain{
 		prevHash: prevHash,
-		db:       db,
+		DB:       db,
 	}
 }
 
 // 添加区块到链中
 func (c *Chain) AppendBlock(b *Block) error {
 	// 存在区块不添加
-	if exits, _ := c.db.Has(b.Hash, nil); exits {
+	if exits, _ := c.Has(b.Hash, nil); exits {
 		return nil
 	}
 	// 将区块追加到链中
 	blockData := b.Serialize()
-	err := c.db.Put(b.Hash, blockData, nil)
+	err := c.Put(b.Hash, blockData, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 	// 最新哈希值
-	tipHash, err := c.db.Get([]byte(tipKey), nil)
+	tipHash, err := c.Get([]byte(tipKey), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 	// 取出最新区块的数据
-	tipBlock := c.GetBlockByHash(tipHash)
+	tipBlock := c.GetBlock(tipHash)
 	// 需要添加区块高度比当前区块的高度大（新区块）
 	if b.Height > tipBlock.Height {
 		// 更新区块链的最新哈希值
-		err = c.db.Put([]byte(tipKey), b.Hash, nil)
+		err = c.Put([]byte(tipKey), b.Hash, nil)
 		if err != nil {
 			log.Panic(err)
 		}
@@ -90,15 +92,28 @@ func (c *Chain) AppendBlock(b *Block) error {
 }
 
 // 通过区块的哈希值获取区块
-func (c *Chain) GetBlockByHash(hash []byte) *Block {
-	blockData, err := c.db.Get(hash, nil)
+func (c *Chain) GetBlock(hash []byte) *Block {
+	blockData, err := c.Get(hash, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 	return DeserializeBlock(blockData)
 }
 
-// 关闭链
-func (c *Chain) Close() {
-	c.db.Close()
+// 通过交易ID获取交易
+func (c *Chain) GetTransaction(id []byte) (Transaction, error) {
+	iter := c.NewIterator(nil, nil)
+	if iter.Next() {
+		k, v := iter.Key(), iter.Value()
+		if bytes.Compare(k, []byte(tipKey)) != 0 {
+			block := DeserializeBlock(v)
+			for _, tx := range block.Transactions {
+				if bytes.Compare(tx.Id, id) == 0 {
+					return *tx, nil
+				}
+			}
+		}
+	}
+	iter.Release()
+	return Transaction{}, errors.New("Transaction is not found ")
 }

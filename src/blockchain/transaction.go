@@ -6,23 +6,32 @@ import (
 	"bytes"
 	"encoding/gob"
 	"log"
+	"github.com/syndtr/goleveldb/leveldb"
+	"encoding/hex"
 )
 
-const subsidy = 25
+const (
+	subsidy = 25
+	utxo    = "data/utxo"
+)
 
 type Transaction struct {
 	Id  []byte     // 交易的hash值
-	In  []TXInput  // 交易的所有收入
+	In  []TXInput  // 交易的所有收入(指明引用了哪个支出)
 	Out []TXOutput // 交易的所有支出
 }
 
 // 创建coinbase交易
 func NewCoinbaseTx(to, data string) *Transaction {
-	return &Transaction{
+	utxoSet := NewUTXOSet()
+	defer utxoSet.Close()
+	tx := &Transaction{
 		Id:  []byte{},
 		In:  []TXInput{{[]byte{}, -1, nil, []byte(data)}},
 		Out: []TXOutput{*NewTXOutput(subsidy, to)},
 	}
+	utxoSet.Add(tx)
+	return tx
 }
 
 // 编码交易
@@ -69,4 +78,79 @@ func NewTXOutput(value int, address string) *TXOutput {
 	txo.Lock([]byte(address))
 
 	return txo
+}
+
+// 所有支出
+type TXOutputs struct {
+	Outputs []TXOutput
+}
+
+// 编码输出
+func (outs TXOutputs) Serialize() []byte {
+	var buff bytes.Buffer
+
+	enc := gob.NewEncoder(&buff)
+	err := enc.Encode(outs)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return buff.Bytes()
+}
+
+// 解码输出
+func DeserializeOutputs(data []byte) TXOutputs {
+	var outputs TXOutputs
+
+	dec := gob.NewDecoder(bytes.NewReader(data))
+	err := dec.Decode(&outputs)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return outputs
+}
+
+// 未花掉的支出（相对接受者就是收入）
+type UTXOSet struct {
+	*leveldb.DB
+}
+
+// 创建UTXO集合
+func NewUTXOSet() UTXOSet {
+	db, err := leveldb.OpenFile(utxo, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return UTXOSet{
+		DB: db,
+	}
+}
+
+// 找到所有可用的UTXO
+func (u UTXOSet) FindSpendableUTXO(pubKeyHash []byte, amount int) (int, map[string][]int) {
+	var (
+		unspentOutputs = make(map[string][]int)
+		balance        = 0
+	)
+	iter := u.NewIterator(nil, nil)
+	for iter.Next() {
+		k, v := iter.Key(), iter.Value()
+		txID := hex.EncodeToString(k)
+		outputs := DeserializeOutputs(v)
+		// 统计未消费掉的支出
+		for outIdx, out := range outputs.Outputs {
+			if out.IsLockedWithKey(pubKeyHash) && balance < amount {
+				balance += out.V
+				unspentOutputs[txID] = append(unspentOutputs[txID], outIdx)
+			}
+		}
+	}
+	iter.Release()
+	return balance, unspentOutputs
+}
+
+// 添加花费的支出（没有就创建）
+func (u UTXOSet) Add(tx *Transaction) {
+	u.Put(tx.Id, tx.Serialize(), nil)
 }

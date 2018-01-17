@@ -71,6 +71,11 @@ func (w Wallet) GetAddress() string {
 	return string(w.Address)
 }
 
+// 获取钱包公钥
+func (w Wallet) GetPubKey() []byte {
+	return w.Address[1: len(w.Address)-AddressChecksumLen]
+}
+
 // 从文件加载钱包
 func LoadWallets() *Wallets {
 	if _, err := os.Stat(walletFile); os.IsNotExist(err) {
