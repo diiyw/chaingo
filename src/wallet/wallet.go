@@ -74,8 +74,8 @@ func (w Wallet) GetAddress() string {
 }
 
 // 获取钱包公钥
-func (w Wallet) GetPubKey() []byte {
-	pubKeyHash := core.Base58Decode(w.Address)
+func GetPublicKey(addr []byte) []byte {
+	pubKeyHash := core.Base58Decode(addr)
 	return pubKeyHash[1: len(pubKeyHash)-AddressChecksumLen]
 }
 

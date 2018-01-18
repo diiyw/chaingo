@@ -5,6 +5,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"bytes"
 	"errors"
+	"crypto/ecdsa"
 )
 
 const (
@@ -100,15 +101,15 @@ func (c *Chain) GetBlock(hash []byte) *Block {
 	return DeserializeBlock(blockData)
 }
 
-// 通过交易ID获取交易
-func (c *Chain) GetTransaction(id []byte) (Transaction, error) {
+// 通过交易TxID获取交易
+func (c *Chain) GetTransaction(txId []byte) (Transaction, error) {
 	iter := c.NewIterator(nil, nil)
 	if iter.Next() {
 		k, v := iter.Key(), iter.Value()
 		if bytes.Compare(k, []byte(tipKey)) != 0 {
 			block := DeserializeBlock(v)
 			for _, tx := range block.Transactions {
-				if bytes.Compare(tx.Id, id) == 0 {
+				if bytes.Compare(tx.Id, txId) == 0 {
 					return *tx, nil
 				}
 			}
