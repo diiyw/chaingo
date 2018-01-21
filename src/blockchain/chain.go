@@ -62,6 +62,7 @@ func OpenChain() *Chain {
 
 // 添加区块到链中
 func (c *Chain) AppendBlock(b *Block) error {
+	// TODO 孤块，分链
 	// 存在区块不添加
 	if exits, _ := c.Has(b.Hash, nil); exits {
 		return nil
@@ -84,7 +85,7 @@ func (c *Chain) AppendBlock(b *Block) error {
 		// 更新区块链的最新哈希值
 		err = c.Put([]byte(tipKey), b.Hash, nil)
 		if err != nil {
-			log.Panic(err)
+			log.Fatal(err)
 		}
 		c.prevHash = b.Hash
 	}
