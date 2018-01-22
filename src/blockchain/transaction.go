@@ -12,6 +12,8 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"crypto/rand"
+	"crypto/elliptic"
+	"math/big"
 )
 
 const (
@@ -20,9 +22,9 @@ const (
 )
 
 type Transaction struct {
-	Id      []byte    // 交易的hash值
-	Inputs  []TXInput // 交易的所有输入(指明引用了哪个输出)
-	Outputs TXOutputs // 交易的所有输出
+	Id     []byte    // 交易的hash值
+	Inputs []TXInput // 交易的所有输入(指明引用了哪个输出)
+	TXOutputs        // 交易的所有输出
 }
 
 func (tx *Transaction) Hash() []byte {
@@ -43,6 +45,7 @@ func (tx Transaction) IsCoinbase() bool {
 
 // 创建交易
 func NewTransaction(w *wallet.Wallet, to string, amount int) *Transaction {
+	chain := OpenChain()
 	var (
 		inputs  []TXInput
 		outputs = TXOutputs{[]TXOutput{}}
@@ -53,8 +56,8 @@ func NewTransaction(w *wallet.Wallet, to string, amount int) *Transaction {
 		log.Fatal("ERROR: Not enough funds")
 	}
 	// 使用输出作为输入
-	for txid, outs := range validOutputs {
-		txID, err := hex.DecodeString(txid)
+	for txId, outs := range validOutputs {
+		txID, err := hex.DecodeString(txId)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -73,34 +76,93 @@ func NewTransaction(w *wallet.Wallet, to string, amount int) *Transaction {
 
 	tx := Transaction{nil, inputs, outputs}
 	tx.Id = tx.Hash()
-	// 交易签名
-	tx.Sign(w.PrivateKey)
+	chain.SignTransaction(&tx, w.PrivateKey)
 	return &tx
 }
 
-// 对交易进行私钥签名(证明该交易是合法发起的)
-func (tx *Transaction) Sign(privateKey ecdsa.PrivateKey) {
-	chain := OpenChain()
+// 对交易进行私钥签名(要取输出的公钥一起加密)
+func (tx *Transaction) Sign(privateKey ecdsa.PrivateKey, prevTXs map[string]Transaction) {
 	if tx.IsCoinbase() {
 		return
 	}
+	txCopy := tx.TrimmedCopy()
 	for idx, in := range tx.Inputs {
-		// 链中是否存在此交易
-		_, err := chain.GetTransaction(in.TxId)
-		if err != nil {
-			log.Fatal(err)
-		}
-		// 私钥签名，确认是拥有者发送的
-		dataToSign := fmt.Sprintf("%x\n", *tx)
+		prevTx := prevTXs[hex.EncodeToString(in.TxId)]
+		txCopy.Inputs[idx].Signature = nil
+		txCopy.Inputs[idx].PubKey = prevTx.Outputs[in.TxOut].PubKeyHash
+
+		dataToSign := fmt.Sprintf("%x\n", txCopy)
 
 		r, s, err := ecdsa.Sign(rand.Reader, &privateKey, []byte(dataToSign))
 		if err != nil {
-			log.Fatal(err)
+			log.Panic(err)
 		}
+		// 验证的时候，对半取出
 		signature := append(r.Bytes(), s.Bytes()...)
 
 		tx.Inputs[idx].Signature = signature
+		txCopy.Inputs[idx].PubKey = nil
 	}
+}
+
+// 复制交易（避免修改到原交易信息）
+func (tx *Transaction) TrimmedCopy() Transaction {
+	var inputs []TXInput
+	var outputs []TXOutput
+
+	for _, in := range tx.Inputs {
+		inputs = append(inputs, TXInput{in.TxId, in.TxOut, nil, nil})
+	}
+
+	for _, out := range tx.Outputs {
+		outputs = append(outputs, TXOutput{out.V, out.PubKeyHash})
+	}
+
+	return Transaction{
+		Id:        tx.Id,
+		Inputs:    inputs,
+		TXOutputs: TXOutputs{outputs},
+	}
+}
+
+func (tx *Transaction) Verify(prevTXs map[string]Transaction) bool {
+	if tx.IsCoinbase() {
+		return true
+	}
+	curve := elliptic.P256()
+	for idx, in := range tx.Inputs {
+		if prevTx, ok := prevTXs[hex.EncodeToString(in.TxId)]; ok {
+			if prevTx.Id == nil {
+				return false
+			}
+			txCopy := tx.TrimmedCopy()
+			txCopy.Inputs[idx].Signature = nil
+			txCopy.Inputs[idx].PubKey = prevTx.Outputs[in.TxOut].PubKeyHash
+
+			r := big.Int{}
+			s := big.Int{}
+			sigLen := len(in.Signature)
+			r.SetBytes(in.Signature[:(sigLen / 2)])
+			s.SetBytes(in.Signature[(sigLen / 2):])
+
+			x := big.Int{}
+			y := big.Int{}
+			keyLen := len(in.PubKey)
+			x.SetBytes(in.PubKey[:(keyLen / 2)])
+			y.SetBytes(in.PubKey[(keyLen / 2):])
+
+			dataToVerify := fmt.Sprintf("%x\n", txCopy)
+
+			rawPubKey := ecdsa.PublicKey{Curve: curve, X: &x, Y: &y}
+			if ecdsa.Verify(&rawPubKey, []byte(dataToVerify), &r, &s) == false {
+				return false
+			}
+			txCopy.Inputs[idx].PubKey = nil
+		}
+		return false
+	}
+
+	return true
 }
 
 // 创建coinbase交易
@@ -110,7 +172,7 @@ func NewCoinbaseTx(to, data string) *Transaction {
 	tx := &Transaction{
 		Id:     []byte{},
 		Inputs: []TXInput{{[]byte{}, -1, nil, []byte(data)}},
-		Outputs: TXOutputs{
+		TXOutputs: TXOutputs{
 			[]TXOutput{
 				*NewTXOutput(subsidy, to),
 			},
@@ -136,9 +198,9 @@ func (tx Transaction) Serialize() []byte {
 
 type TXInput struct {
 	TxId      []byte // 交易的hash值
-	TxOut     int
-	Signature []byte
-	PubKey    []byte
+	TxOut     int    // 输出的索引
+	Signature []byte // 签名
+	PubKey    []byte // 公钥
 }
 
 type TXOutput struct {
@@ -240,5 +302,5 @@ func (u UTXOSet) FindSpendableUTXO(pubKeyHash []byte, amount int) (int, map[stri
 
 // 添加花费的输出（没有就创建）
 func (u UTXOSet) AddTXOutputs(tx *Transaction) {
-	u.Put(tx.Id, tx.Outputs.Serialize(), nil)
+	u.Put(tx.Id, tx.TXOutputs.Serialize(), nil)
 }

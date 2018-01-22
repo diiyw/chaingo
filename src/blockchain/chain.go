@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"errors"
 	"crypto/ecdsa"
+	"encoding/hex"
 )
 
 const (
@@ -118,4 +119,39 @@ func (c *Chain) GetTransaction(txId []byte) (Transaction, error) {
 	}
 	iter.Release()
 	return Transaction{}, errors.New("Transaction is not found ")
+}
+
+// 对交易的输入签名
+func (c *Chain) SignTransaction(tx *Transaction, privateKey ecdsa.PrivateKey) {
+	prevTXs := make(map[string]Transaction)
+
+	for _, in := range tx.Inputs {
+		// 链中是否存在此交易
+		prevTX, err := c.GetTransaction(in.TxId)
+		if err != nil {
+			log.Fatal(err)
+		}
+		prevTXs[hex.EncodeToString(prevTX.Id)] = prevTX
+	}
+
+	tx.Sign(privateKey, prevTXs)
+}
+
+// 验证是否是合法的交易
+func (c *Chain) VerifyTransaction(tx *Transaction) bool {
+	if tx.IsCoinbase() {
+		return true
+	}
+
+	prevTXs := make(map[string]Transaction)
+
+	for _, in := range tx.Inputs {
+		prevTX, err := c.GetTransaction(in.TxId)
+		if err != nil {
+			log.Fatal(err)
+		}
+		prevTXs[hex.EncodeToString(prevTX.Id)] = prevTX
+	}
+
+	return tx.Verify(prevTXs)
 }
