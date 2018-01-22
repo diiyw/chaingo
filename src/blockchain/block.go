@@ -31,11 +31,11 @@ func NewBlock(prevHash []byte, height int) *Block {
 // 创建创世块
 func NewGenesisBlock(address string) *Block {
 	block := NewBlock(nil, 0)
-	block.mining([]*Transaction{NewCoinbaseTx(address, genesisCoinbaseData)})
+	block.Mining([]*Transaction{NewCoinbaseTx(address, genesisCoinbaseData)})
 	return block
 }
 
-func (b *Block) mining(txs []*Transaction) {
+func (b *Block) Mining(txs []*Transaction) {
 	b.Transactions = txs
 	pow := proof.NewPow()
 	nonce, hash := pow.Mining(b.Ore())

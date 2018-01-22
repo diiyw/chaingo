@@ -18,6 +18,7 @@ const (
 type Chain struct {
 	*leveldb.DB
 	prevHash []byte // 最靠前的区块哈希值
+	height   int
 }
 
 // 创建区块链
@@ -42,6 +43,7 @@ func CreateChain(address string) *Chain {
 	return &Chain{
 		prevHash: block.Hash,
 		DB:       db,
+		height:   block.Height,
 	}
 }
 
@@ -55,15 +57,20 @@ func OpenChain() *Chain {
 	if err != nil {
 		log.Fatal("Database was destroyed.")
 	}
+	prevBlock, err := db.Get(prevHash, nil)
+	if err != nil {
+		log.Fatal("Database was destroyed.")
+	}
+	block := DeserializeBlock(prevBlock)
 	return &Chain{
 		prevHash: prevHash,
 		DB:       db,
+		height:   block.Height,
 	}
 }
 
 // 添加区块到链中
 func (c *Chain) AppendBlock(b *Block) error {
-	// TODO 孤块，分链
 	// 存在区块不添加
 	if exits, _ := c.Has(b.Hash, nil); exits {
 		return nil
@@ -121,7 +128,7 @@ func (c *Chain) GetTransaction(txId []byte) (Transaction, error) {
 	return Transaction{}, errors.New("Transaction is not found ")
 }
 
-// 对交易的输入签名
+// 交易签名
 func (c *Chain) SignTransaction(tx *Transaction, privateKey ecdsa.PrivateKey) {
 	prevTXs := make(map[string]Transaction)
 
@@ -137,7 +144,7 @@ func (c *Chain) SignTransaction(tx *Transaction, privateKey ecdsa.PrivateKey) {
 	tx.Sign(privateKey, prevTXs)
 }
 
-// 验证是否是合法的交易
+// 验证交易
 func (c *Chain) VerifyTransaction(tx *Transaction) bool {
 	if tx.IsCoinbase() {
 		return true
@@ -154,4 +161,11 @@ func (c *Chain) VerifyTransaction(tx *Transaction) bool {
 	}
 
 	return tx.Verify(prevTXs)
+}
+
+// 挖矿
+func (c *Chain) MineBlock(address string, txs []*Transaction) {
+	block := NewBlock(c.prevHash, c.height+1)
+	block.Mining(txs)
+	c.AppendBlock(block)
 }
