@@ -3,20 +3,18 @@ package network
 import (
 	"net"
 	"log"
-	"io/ioutil"
 	"encoding/json"
-	"time"
 )
 
 const (
 	SuccessMessage = "success"
-	timeOut        = 1e9 * 30
+	MaxMesaageLen  = 1024 * 1000
 )
 
 var P2PNode *Node
 
 type Node struct {
-	nodes []Node // 伙伴节点
+	nodes []string // 节点
 	addr  *net.TCPAddr
 }
 
@@ -39,29 +37,44 @@ func (n *Node) Serving() {
 	}
 	for {
 		conn, err := listener.Accept()
-		conn.SetDeadline(time.Now().Add(timeOut))
 		if err != nil {
 			log.Println(err)
 		}
-		message, err := ioutil.ReadAll(conn)
-		if err != nil {
-			log.Println(err)
-		}
-		var m Message
-		if json.Unmarshal(message, m) == nil {
-			if result := m.Resolve(); result != nil {
-				conn.Write(result)
-			} else {
-				conn.Write([]byte(SuccessMessage))
-			}
-		}
+		go n.handle(conn)
+	}
+}
+
+func (n *Node) handle(conn net.Conn) {
+	remoteAddr := conn.RemoteAddr()
+	log.Println(remoteAddr, "connected.")
+	defer func() {
 		conn.Close()
+		log.Println(remoteAddr, "closed.")
+	}()
+	b := make([]byte, 1)
+	var message []byte
+	for {
+		_, err := conn.Read(b)
+		if err != nil {
+			break
+		}
+		message = append(message, b...)
+		if len(message) > MaxMesaageLen {
+			break
+		}
+	}
+	if m := Unmarshal(message); m != nil {
+		if result := m.Resolve(); result != nil {
+			conn.Write(result)
+		} else {
+			conn.Write([]byte(SuccessMessage))
+		}
 	}
 }
 
 // 添加新节点
-func (n *Node) AddPartner(addr *net.TCPAddr) {
-	n.nodes = append(n.nodes, Node{addr: addr})
+func (n *Node) AddNode(addr string) {
+	n.nodes = append(n.nodes, addr)
 }
 
 // 网络发现
@@ -72,7 +85,7 @@ func (n *Node) Discovery() {
 // 广播消息
 func (n *Node) Broadcasting(m Message) {
 	for _, node := range n.nodes {
-		conn, err := net.Dial("tcp4", node.addr.String())
+		conn, err := net.Dial("tcp4", node)
 		if err != nil {
 			log.Println(err)
 			continue

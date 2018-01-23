@@ -3,6 +3,9 @@ package network
 import (
 	"net"
 	"blockchain"
+	"proof"
+	"encoding/json"
+	"fmt"
 )
 
 type Message interface {
@@ -10,24 +13,24 @@ type Message interface {
 }
 
 // 伙伴连接
-type Partner struct {
+type RelNode struct {
 	Ip   string
 	Port int
 }
 
-func (p Partner) Resolve() []byte {
+func (p RelNode) Resolve() []byte {
 	partner := &net.TCPAddr{
 		IP:   net.ParseIP(p.Ip),
 		Port: p.Port,
 	}
 	for _, node := range P2PNode.nodes {
-		if node.addr.String() == partner.String() {
+		if node == partner.String() {
 			return nil
 		}
 	}
-	P2PNode.AddPartner(partner)
 	// 广播到其他节点
-	P2PNode.Broadcasting(p)
+	go P2PNode.Broadcasting(p)
+	P2PNode.AddNode(partner.String())
 	return nil
 }
 
@@ -49,6 +52,22 @@ type Blockchain struct {
 
 func (b Blockchain) Resolve() []byte {
 	chain := blockchain.OpenChain()
-	chain.AppendBlock(b.Block)
+	if proof.NewPow().Validate(b.Block.Ore(), b.Block.Nonce) {
+		chain.AppendBlock(b.Block)
+	}
+	return nil
+}
+
+func Unmarshal(b []byte) Message {
+	var (
+		messages = []interface{}{RelNode{}, Tx{}, Blockchain{}}
+	)
+	for _, m := range messages {
+		fmt.Println(json.Unmarshal(b, &m))
+		if json.Unmarshal(b, &m) == nil {
+			return m
+		}
+	}
+
 	return nil
 }

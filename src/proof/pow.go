@@ -65,7 +65,7 @@ func (pow Pow) Mining(data []byte) (int, []byte) {
 }
 
 // 验证工作
-func (pow *Pow) Validate(data []byte, nonce int) bool {
+func (pow Pow) Validate(data []byte, nonce int) bool {
 	var hashInt big.Int
 
 	data = pow.prepareData(data, nonce)
