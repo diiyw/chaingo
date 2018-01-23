@@ -5,52 +5,51 @@ import (
 	"blockchain"
 	"proof"
 	"encoding/json"
-	"fmt"
 )
 
 type Message interface {
 	Resolve() []byte
 }
 
-// 伙伴连接
+// 广播节点
 type RelNode struct {
 	Ip   string
 	Port int
 }
 
-func (p RelNode) Resolve() []byte {
-	partner := &net.TCPAddr{
-		IP:   net.ParseIP(p.Ip),
-		Port: p.Port,
+func (r RelNode) Resolve() []byte {
+	node := &net.TCPAddr{
+		IP:   net.ParseIP(r.Ip),
+		Port: r.Port,
 	}
-	for _, node := range P2PNode.nodes {
-		if node == partner.String() {
+	for _, n := range P2PNode.nodes {
+		if n == node.String() {
 			return nil
 		}
 	}
 	// 广播到其他节点
-	go P2PNode.Broadcasting(p)
-	P2PNode.AddNode(partner.String())
+	go P2PNode.Broadcasting(r, node.String())
+	P2PNode.AddNode(node.String())
 	return nil
 }
 
-// 交易
+// 广播交易
 type Tx struct {
 	From        string
 	Transaction []byte
 }
 
 func (tx Tx) Resolve() []byte {
-	P2PNode.Broadcasting(tx)
+	P2PNode.Broadcasting(tx, tx.From)
 	return nil
 }
 
-// 区块链
-type Blockchain struct {
+// 广播区块
+type Block struct {
 	Block *blockchain.Block
 }
 
-func (b Blockchain) Resolve() []byte {
+func (b Block) Resolve() []byte {
 	chain := blockchain.OpenChain()
 	if proof.NewPow().Validate(b.Block.Ore(), b.Block.Nonce) {
 		chain.AppendBlock(b.Block)
@@ -60,12 +59,22 @@ func (b Blockchain) Resolve() []byte {
 
 func Unmarshal(b []byte) Message {
 	var (
-		messages = []interface{}{RelNode{}, Tx{}, Blockchain{}}
+		messages = []Message{RelNode{}, Tx{}, Block{}}
 	)
 	for _, m := range messages {
-		fmt.Println(json.Unmarshal(b, &m))
-		if json.Unmarshal(b, &m) == nil {
-			return m
+		switch mType := m.(type) {
+		case RelNode:
+			if json.Unmarshal(b, &mType) == nil {
+				return mType
+			}
+		case Tx:
+			if json.Unmarshal(b, &mType) == nil {
+				return mType
+			}
+		case Block:
+			if json.Unmarshal(b, &mType) == nil {
+				return mType
+			}
 		}
 	}
 

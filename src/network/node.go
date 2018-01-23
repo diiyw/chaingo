@@ -83,8 +83,11 @@ func (n *Node) Discovery() {
 }
 
 // 广播消息
-func (n *Node) Broadcasting(m Message) {
+func (n *Node) Broadcasting(m Message, ignore string) {
 	for _, node := range n.nodes {
+		if node == ignore {
+			continue
+		}
 		conn, err := net.Dial("tcp4", node)
 		if err != nil {
 			log.Println(err)

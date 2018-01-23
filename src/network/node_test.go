@@ -30,7 +30,7 @@ func TestNode_AddNode(t *testing.T) {
 	if err != nil {
 		log.Println(err)
 	}
-	b, err := json.Marshal(Partner{"127.0.0.1", 1025})
+	b, err := json.Marshal(RelNode{"127.0.0.1", 1025})
 	if err != nil {
 		log.Println(err)
 	}
