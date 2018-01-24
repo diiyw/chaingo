@@ -34,17 +34,17 @@ type Wallet struct {
 
 // 新建钱包
 func NewWallets() *Wallets {
-	if _, err := os.Stat(walletFile); os.IsNotExist(err) {
+	var ws *Wallets
+	if ws, err := LoadWallets(); err != nil {
 		w := NewWallet()
-		ws := &Wallets{
+		ws = &Wallets{
 			Sets: map[string]*Wallet{
 				w.GetAddress(): w,
 			},
 		}
 		ws.Storage()
-		return ws
 	}
-	return LoadWallets()
+	return ws
 }
 
 // 新建钱包
@@ -80,14 +80,14 @@ func GetPublicKey(addr []byte) []byte {
 }
 
 // 从文件加载钱包
-func LoadWallets() *Wallets {
+func LoadWallets() (*Wallets, error) {
 	if _, err := os.Stat(walletFile); os.IsNotExist(err) {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	ctn, err := ioutil.ReadFile(walletFile)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	var w Wallets
@@ -95,10 +95,17 @@ func LoadWallets() *Wallets {
 	decoder := gob.NewDecoder(bytes.NewReader(ctn))
 	err = decoder.Decode(&w)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
-	return &w
+	return &w, nil
+}
+
+// 写入新钱包
+func (w Wallets) NewWallet() *Wallet {
+	q := NewWallet()
+	w.Sets[q.GetAddress()] = q
+	return q
 }
 
 // 保存钱包到文件

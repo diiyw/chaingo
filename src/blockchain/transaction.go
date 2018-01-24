@@ -46,12 +46,13 @@ func (tx Transaction) IsCoinbase() bool {
 // 创建交易
 func NewTransaction(w *wallet.Wallet, to string, amount int) *Transaction {
 	chain := OpenChain()
+	defer chain.Close()
 	var (
 		inputs  []TXInput
 		outputs = TXOutputs{[]TXOutput{}}
 		utxoSet = NewUTXOSet()
 	)
-	balance, validOutputs := utxoSet.FindSpendableUTXO(w.PublicKey, amount)
+	balance, validOutputs := utxoSet.FindSpendableUTXO(wallet.HashPubKey(w.PublicKey), amount)
 	if balance < amount {
 		log.Fatal("ERROR: Not enough funds")
 	}
@@ -95,7 +96,7 @@ func (tx *Transaction) Sign(privateKey ecdsa.PrivateKey, prevTXs map[string]Tran
 
 		r, s, err := ecdsa.Sign(rand.Reader, &privateKey, []byte(dataToSign))
 		if err != nil {
-			log.Panic(err)
+			log.Fatal(err)
 		}
 		// 验证的时候，对半取出
 		signature := append(r.Bytes(), s.Bytes()...)
@@ -159,7 +160,6 @@ func (tx *Transaction) Verify(prevTXs map[string]Transaction) bool {
 			}
 			txCopy.Inputs[idx].PubKey = nil
 		}
-		return false
 	}
 
 	return true
