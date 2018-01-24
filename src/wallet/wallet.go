@@ -34,8 +34,11 @@ type Wallet struct {
 
 // 新建钱包
 func NewWallets() *Wallets {
-	var ws *Wallets
-	if ws, err := LoadWallets(); err != nil {
+	var (
+		ws  *Wallets
+		err error
+	)
+	if ws, err = LoadWallets(); err != nil {
 		w := NewWallet()
 		ws = &Wallets{
 			Sets: map[string]*Wallet{

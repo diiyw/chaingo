@@ -276,11 +276,11 @@ func NewUTXOSet() UTXOSet {
 	}
 }
 
-// 找到所有可用的UTXO（获取余额）
+// 找到可用的UTXO
 func (u UTXOSet) FindSpendableUTXO(pubKeyHash []byte, amount int) (int, map[string][]int) {
 	var (
 		unspentOutputs = make(map[string][]int)
-		balance        = 0
+		sum            = 0
 	)
 	iter := u.NewIterator(nil, nil)
 	for iter.Next() {
@@ -289,15 +289,36 @@ func (u UTXOSet) FindSpendableUTXO(pubKeyHash []byte, amount int) (int, map[stri
 		outputs := DeserializeOutputs(v)
 		// 统计未消费掉的输出
 		for outIdx, out := range outputs.Outputs {
-			if out.IsLockedWithKey(pubKeyHash) && balance < amount {
-				balance += out.V
+			if out.IsLockedWithKey(pubKeyHash) && sum < amount {
+				sum += out.V
 				// outIdx是未花费掉的输出索引
 				unspentOutputs[txID] = append(unspentOutputs[txID], outIdx)
 			}
 		}
 	}
 	iter.Release()
-	return balance, unspentOutputs
+	return sum, unspentOutputs
+}
+
+// 获取余额
+func (u UTXOSet) FindUTXO(address string) int {
+	var (
+		balance    = 0
+		pubKeyHash = wallet.GetPublicKey([]byte(address))
+	)
+	iter := u.NewIterator(nil, nil)
+	for iter.Next() {
+		_, v := iter.Key(), iter.Value()
+		outputs := DeserializeOutputs(v)
+		// 统计未消费掉的输出
+		for _, out := range outputs.Outputs {
+			if out.IsLockedWithKey(pubKeyHash) {
+				balance += out.V
+			}
+		}
+	}
+	iter.Release()
+	return balance
 }
 
 // 添加花费的输出（没有就创建）

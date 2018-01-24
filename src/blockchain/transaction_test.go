@@ -12,9 +12,8 @@ func TestUTXOSet_FindSpendableUTXO(t *testing.T) {
 	defer utxo.Close()
 	for _, w := range wallets.Sets {
 		fmt.Println("address:" + w.GetAddress())
-		b, m := utxo.FindSpendableUTXO(wallet.GetPublicKey(w.Address), 10)
+		b := utxo.FindUTXO(w.GetAddress())
 		fmt.Println("balance:", b)
-		fmt.Println("utxoes:", m)
 	}
 }
 

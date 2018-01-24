@@ -3,12 +3,13 @@ package cli
 import (
 	"wallet"
 	"fmt"
+	"blockchain"
 )
 
 func ListAccount() {
 	ws := wallet.NewWallets()
-	for idx, w := range ws.Sets {
-		fmt.Println(idx, "->", w.GetAddress())
+	for _, w := range ws.Sets {
+		fmt.Println("->", w.GetAddress())
 	}
 }
 
@@ -17,4 +18,8 @@ func NewAccount() {
 	w := wallets.NewWallet()
 	fmt.Println("address:", w.GetAddress())
 	wallets.Storage()
+}
+
+func Balance(address string) {
+	fmt.Println("balance:", blockchain.NewUTXOSet().FindUTXO(address))
 }
