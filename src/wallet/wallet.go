@@ -148,6 +148,9 @@ func HashPubKey(pubKey []byte) []byte {
 // 验证钱包地址是否可用
 func ValidateAddress(address string) bool {
 	pubKeyHash := core.Base58Decode([]byte(address))
+	if len(pubKeyHash) != 21+AddressChecksumLen {
+		return false
+	}
 	actualChecksum := pubKeyHash[len(pubKeyHash)-AddressChecksumLen:]
 	version := pubKeyHash[0]
 	pubKeyHash = pubKeyHash[1: len(pubKeyHash)-AddressChecksumLen]

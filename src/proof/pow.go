@@ -3,10 +3,10 @@ package proof
 import (
 	"math"
 	"math/big"
-	"fmt"
 	"crypto/sha256"
 	"bytes"
 	"core"
+	"log"
 )
 
 var (
@@ -46,7 +46,7 @@ func (pow Pow) Mining(data []byte) (int, []byte) {
 		hash    [32]byte
 		nonce   = 0
 	)
-	fmt.Println("Mining a new block")
+	log.Println("INFO:", "Mining a new block")
 	for nonce < maxNonce {
 		data = pow.prepareData(data, nonce)
 
@@ -59,7 +59,6 @@ func (pow Pow) Mining(data []byte) (int, []byte) {
 			nonce++
 		}
 	}
-	fmt.Print("\n")
 
 	return nonce, hash[:]
 }

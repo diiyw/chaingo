@@ -15,6 +15,8 @@ const (
 	genesisCoinbaseData = "The Times 16/Jan/2018 Chancellor on brink of second bailout for world"
 )
 
+var chainSingleton *Chain
+
 type Chain struct {
 	*leveldb.DB
 	prevHash []byte // 最靠前的区块哈希值
@@ -49,24 +51,27 @@ func CreateChain(address string) *Chain {
 
 // 打开区块链
 func OpenChain() *Chain {
-	db, err := leveldb.OpenFile(blocks, nil)
-	if err != nil {
-		log.Fatal(err)
+	if chainSingleton == nil {
+		db, err := leveldb.OpenFile(blocks, nil)
+		if err != nil {
+			log.Fatal(err)
+		}
+		prevHash, err := db.Get([]byte(tipKey), nil)
+		if err != nil {
+			log.Fatal("ERROR: Blockchain need update.")
+		}
+		prevBlock, err := db.Get(prevHash, nil)
+		if err != nil {
+			log.Fatal("ERROR: Last block not found.")
+		}
+		block := DeserializeBlock(prevBlock)
+		chainSingleton = &Chain{
+			prevHash: prevHash,
+			DB:       db,
+			height:   block.Height,
+		}
 	}
-	prevHash, err := db.Get([]byte(tipKey), nil)
-	if err != nil {
-		log.Fatal("Database was destroyed.")
-	}
-	prevBlock, err := db.Get(prevHash, nil)
-	if err != nil {
-		log.Fatal("Database was destroyed.")
-	}
-	block := DeserializeBlock(prevBlock)
-	return &Chain{
-		prevHash: prevHash,
-		DB:       db,
-		height:   block.Height,
-	}
+	return chainSingleton
 }
 
 // 添加区块到链中
@@ -167,5 +172,6 @@ func (c *Chain) VerifyTransaction(tx *Transaction) bool {
 func (c *Chain) MineBlock(address string, txs []*Transaction) {
 	block := NewBlock(c.prevHash, c.height+1)
 	block.Mining(txs)
+	log.Println("INFO:", "new block", block.Height, block.Hash)
 	c.AppendBlock(block)
 }

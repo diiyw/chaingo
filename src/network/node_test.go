@@ -37,7 +37,7 @@ func TestNode_AddNode(t *testing.T) {
 	if b == nil {
 		t.Error("message error.")
 	}
-	conn.Write(b)
+	conn.Write(append([]byte("*network.RelNode"),b...))
 	conn.Close()
 	time.Sleep(1e9 * 2)
 	for _, node := range P2PNode.nodes {

@@ -5,6 +5,7 @@ import (
 	"blockchain"
 	"proof"
 	"encoding/json"
+	"log"
 )
 
 type Message interface {
@@ -39,7 +40,11 @@ type Tx struct {
 	Transaction []byte
 }
 
+var Txs = make(chan blockchain.Transaction, 1)
+
 func (tx Tx) Resolve() []byte {
+	log.Println("INFO: Received transaction")
+	Txs <- blockchain.DeserializeTransaction(tx.Transaction)
 	P2PNode.Broadcasting(tx, tx.From)
 	return nil
 }
@@ -50,6 +55,7 @@ type Block struct {
 }
 
 func (b Block) Resolve() []byte {
+	log.Println("INFO:", "new block", b.Block.Height)
 	chain := blockchain.OpenChain()
 	if proof.NewPow().Validate(b.Block.Ore(), b.Block.Nonce) {
 		chain.AppendBlock(b.Block)
@@ -58,25 +64,22 @@ func (b Block) Resolve() []byte {
 }
 
 func Unmarshal(b []byte) Message {
-	var (
-		messages = []Message{RelNode{}, Tx{}, Block{}}
-	)
-	for _, m := range messages {
-		switch mType := m.(type) {
-		case RelNode:
-			if json.Unmarshal(b, &mType) == nil {
-				return mType
-			}
-		case Tx:
-			if json.Unmarshal(b, &mType) == nil {
-				return mType
-			}
-		case Block:
-			if json.Unmarshal(b, &mType) == nil {
-				return mType
-			}
+	switch  b[9] {
+	case 'T':
+		tx := Tx{}
+		if json.Unmarshal(b[11:], &tx) == nil {
+			return tx
+		}
+	case 'B':
+		block := Block{}
+		if json.Unmarshal(b[14:], &block) == nil {
+			return block
+		}
+	case 'R':
+		node := RelNode{}
+		if json.Unmarshal(b[16:], &node) == nil {
+			return node
 		}
 	}
-
 	return nil
 }

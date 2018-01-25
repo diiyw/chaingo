@@ -1,17 +1,24 @@
 package cli
 
-import "blockchain"
+import (
+	"blockchain"
+	"network"
+	"wallet"
+	"log"
+)
 
 const TXNumbers = 1
 
-var Txs = make(chan blockchain.Transaction, 1)
-
-func StartMine(address string) {
+func StartMine(ip string, port int, address string) {
+	if !wallet.ValidateAddress(address) {
+		log.Fatal("ERROR: error address")
+	}
 	var txs []*blockchain.Transaction
 	chain := blockchain.OpenChain()
+	go network.NewNode(ip, port).Serving()
 	for {
 		select {
-		case tx := <-Txs:
+		case tx := <-network.Txs:
 			txs = append(txs, &tx)
 			if len(txs) == TXNumbers {
 				chain.MineBlock(address, txs)

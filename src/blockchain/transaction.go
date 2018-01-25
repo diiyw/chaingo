@@ -165,6 +165,19 @@ func (tx *Transaction) Verify(prevTXs map[string]Transaction) bool {
 	return true
 }
 
+// 交易解码输出
+func DeserializeTransaction(data []byte) Transaction {
+	var tx Transaction
+
+	decoder := gob.NewDecoder(bytes.NewReader(data))
+	err := decoder.Decode(&tx)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	return tx
+}
+
 // 创建coinbase交易
 func NewCoinbaseTx(to, data string) *Transaction {
 	utxoSet := NewUTXOSet()
@@ -324,4 +337,45 @@ func (u UTXOSet) FindUTXO(address string) int {
 // 添加花费的输出（没有就创建）
 func (u UTXOSet) AddTXOutputs(tx *Transaction) {
 	u.Put(tx.Id, tx.TXOutputs.Serialize(), nil)
+}
+
+// 更新utxo集
+func (u UTXOSet) Update(block *Block) {
+	for _, tx := range block.Transactions {
+		if tx.IsCoinbase() == false {
+			for _, in := range tx.Inputs {
+				updatedOuts := TXOutputs{}
+				outsBytes, err := u.Get(in.TxId, nil)
+				if err != nil {
+					log.Println(err)
+					return
+				}
+				outs := DeserializeOutputs(outsBytes)
+
+				for outIdx, out := range outs.Outputs {
+					if outIdx != in.TxOut {
+						updatedOuts.Outputs = append(updatedOuts.Outputs, out)
+					}
+				}
+
+				if len(updatedOuts.Outputs) == 0 {
+					err := u.Delete(in.TxId, nil)
+					if err != nil {
+						log.Println(err)
+					}
+				} else {
+					err := u.Put(in.TxId, updatedOuts.Serialize(), nil)
+					if err != nil {
+						log.Println(err)
+					}
+				}
+
+			}
+		}
+
+		err := u.Put(tx.Id, tx.TXOutputs.Serialize(), nil)
+		if err != nil {
+			log.Println(err)
+		}
+	}
 }
