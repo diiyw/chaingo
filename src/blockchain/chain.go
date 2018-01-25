@@ -102,7 +102,7 @@ func (c *Chain) AppendBlock(b *Block) error {
 		}
 		c.prevHash = b.Hash
 	}
-
+	NewUTXOSet().Update(b)
 	return nil
 }
 

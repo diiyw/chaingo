@@ -351,7 +351,7 @@ func (u UTXOSet) Update(block *Block) {
 					return
 				}
 				outs := DeserializeOutputs(outsBytes)
-
+				// 未使用到的输出
 				for outIdx, out := range outs.Outputs {
 					if outIdx != in.TxOut {
 						updatedOuts.Outputs = append(updatedOuts.Outputs, out)
@@ -359,11 +359,13 @@ func (u UTXOSet) Update(block *Block) {
 				}
 
 				if len(updatedOuts.Outputs) == 0 {
+					// 全部使用删除输出
 					err := u.Delete(in.TxId, nil)
 					if err != nil {
 						log.Println(err)
 					}
 				} else {
+					// 未使用的放回
 					err := u.Put(in.TxId, updatedOuts.Serialize(), nil)
 					if err != nil {
 						log.Println(err)
