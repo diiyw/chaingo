@@ -18,7 +18,12 @@ func TestCreateChain(t *testing.T) {
 func TestOpenChain(t *testing.T) {
 	c := OpenChain()
 	defer c.Close()
-	fmt.Printf("Hash: %x", c.prevHash)
+	iter := c.NewIterator(nil, nil)
+	for iter.Next() {
+		fmt.Printf("Hash: %x %x \n", iter.Key(),iter.Value())
+	}
+	iter.Release()
+
 }
 
 func TestChain_GetBlockByHash(t *testing.T) {

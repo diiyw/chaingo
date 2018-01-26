@@ -8,6 +8,8 @@ import (
 	"fmt"
 )
 
+const VERSION = "0.0.1"
+
 func main() {
 	usage := `Chaingo - an blockchain write by golang
 
@@ -17,8 +19,9 @@ Usage:
 Commands:
 	mine	start mining
 	account	account manage
+	chain	print blockchain
 	version	show chaingo version
-	help	shows a list of commands or help for one command.
+	help	shows this help.
 
 Options:
 	-h 	show command help
@@ -107,4 +110,17 @@ Author:
 		}
 		fmt.Println(accountUsage)
 	}
+	if os.Args[1] == "version" {
+		fmt.Println("Version:", VERSION)
+		return
+	}
+	if os.Args[1] == "chain" {
+		cli.PrintChain()
+		return
+	}
+	if os.Args[1] == "help" {
+		fmt.Println(usage)
+		return
+	}
+	fmt.Println(usage)
 }

@@ -84,12 +84,12 @@ func (c *Chain) AppendBlock(b *Block) error {
 	blockData := b.Serialize()
 	err := c.Put(b.Hash, blockData, nil)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	// 最新哈希值
 	tipHash, err := c.Get([]byte(tipKey), nil)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	// 取出最新区块的数据
 	tipBlock := c.GetBlock(tipHash)
@@ -98,7 +98,7 @@ func (c *Chain) AppendBlock(b *Block) error {
 		// 更新区块链的最新哈希值
 		err = c.Put([]byte(tipKey), b.Hash, nil)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		c.prevHash = b.Hash
 	}
@@ -118,7 +118,7 @@ func (c *Chain) GetBlock(hash []byte) *Block {
 // 通过交易TxID获取交易
 func (c *Chain) GetTransaction(txId []byte) (Transaction, error) {
 	iter := c.NewIterator(nil, nil)
-	if iter.Next() {
+	for iter.Next() {
 		k, v := iter.Key(), iter.Value()
 		if bytes.Compare(k, []byte(tipKey)) != 0 {
 			block := DeserializeBlock(v)
@@ -172,6 +172,8 @@ func (c *Chain) VerifyTransaction(tx *Transaction) bool {
 func (c *Chain) MineBlock(address string, txs []*Transaction) {
 	block := NewBlock(c.prevHash, c.height+1)
 	block.Mining(txs)
-	log.Println("INFO:", "new block", block.Height, block.Hash)
-	c.AppendBlock(block)
+	log.Printf("INFO: new block %d %x", block.Height, block.Hash)
+	if err := c.AppendBlock(block); err != nil {
+		log.Println("INFO: Append block error ->", err)
+	}
 }

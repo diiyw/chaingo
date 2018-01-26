@@ -58,7 +58,9 @@ func (b Block) Resolve() []byte {
 	log.Println("INFO:", "new block", b.Block.Height)
 	chain := blockchain.OpenChain()
 	if proof.NewPow().Validate(b.Block.Ore(), b.Block.Nonce) {
-		chain.AppendBlock(b.Block)
+		if err := chain.AppendBlock(b.Block); err != nil {
+			log.Println("INFO: Append block error ->", err)
+		}
 	}
 	return nil
 }
