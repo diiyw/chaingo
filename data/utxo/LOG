@@ -136,3 +136,10 @@
 15:42:33.838684 version@stat F·[2] S·630B[630B] Sc·[0.50]
 15:42:33.884583 db@janitor F·4 G·0
 15:42:33.884622 db@open done T·50.51017ms
+=============== Jan 30, 2018 (CST) ===============
+18:16:32.377868 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+18:16:32.393284 version@stat F·[2] S·630B[630B] Sc·[0.50]
+18:16:32.393331 db@open opening
+18:16:32.394251 version@stat F·[2] S·630B[630B] Sc·[0.50]
+18:16:32.634409 db@janitor F·4 G·0
+18:16:32.634540 db@open done T·241.202261ms

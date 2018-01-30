@@ -170,6 +170,7 @@ func (c *Chain) VerifyTransaction(tx *Transaction) bool {
 
 // 挖矿
 func (c *Chain) MineBlock(address string, txs []*Transaction) {
+	txs = append(txs, NewCoinbaseTx(address, "coinbase"))
 	block := NewBlock(c.prevHash, c.height+1)
 	block.Mining(txs)
 	log.Printf("INFO: new block %d %x", block.Height, block.Hash)
