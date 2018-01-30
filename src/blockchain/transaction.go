@@ -205,8 +205,6 @@ func DeserializeTransaction(data []byte) Transaction {
 
 // 创建coinbase交易
 func NewCoinbaseTx(to, data string) *Transaction {
-	utxoSet := NewUTXOSet()
-	defer utxoSet.Close()
 	tx := &Transaction{
 		Id:     []byte{},
 		Inputs: []TXInput{{[]byte{}, -1, nil, []byte(data)}},
@@ -217,7 +215,6 @@ func NewCoinbaseTx(to, data string) *Transaction {
 		},
 	}
 	tx.Id = tx.Hash()
-	utxoSet.AddTXOutputs(tx)
 	return tx
 }
 

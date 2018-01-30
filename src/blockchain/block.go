@@ -31,7 +31,11 @@ func NewBlock(prevHash []byte, height int) *Block {
 // 创建创世块
 func NewGenesisBlock(address string) *Block {
 	block := NewBlock(nil, 0)
-	block.Mining([]*Transaction{NewCoinbaseTx(address, genesisCoinbaseData)})
+	utxoSet := NewUTXOSet()
+	defer utxoSet.Close()
+	cbTx := NewCoinbaseTx(address, genesisCoinbaseData)
+	block.Mining([]*Transaction{cbTx})
+	utxoSet.AddTXOutputs(cbTx)
 	return block
 }
 
