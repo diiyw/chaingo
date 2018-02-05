@@ -2,7 +2,7 @@
 
 这是使用go语言开发的区块链。A simple Blockchain in Golang
 
-#Screenshots
+# Screenshots
 
 ![](images/1.jpg)
 
