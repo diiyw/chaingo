@@ -1,6 +1,12 @@
 # Chaingo
 
-这是使用go语音编写的区块链。适用于区块链新手学习。也欢迎大佬批评指点。
+这是使用go语言开发的区块链。A simple Blockchain in Golang
+
+#Screenshots
+
+![](images/1.jpg)
+
+![](images/2.jpg)
 
 # 说明
 
