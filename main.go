@@ -1,11 +1,11 @@
 package main
 
 import (
-	"os"
-	"cli"
-	"log"
-	"strconv"
 	"fmt"
+	"github.com/diiyw/chaingo/cli"
+	"log"
+	"os"
+	"strconv"
 )
 
 const VERSION = "0.0.1"
@@ -84,7 +84,9 @@ Author:
 			return
 		}
 		if os.Args[2] == "-new" {
-			cli.NewAccount()
+			if err := cli.NewAccount(); err != nil {
+				log.Fatal(err)
+			}
 			return
 		}
 		if os.Args[2] == "-fund" {
@@ -115,8 +117,21 @@ Author:
 		return
 	}
 	if os.Args[1] == "chain" {
-		cli.PrintChain()
-		return
+		accountUsage := `Usage:
+  chaingo chain [print|create]`
+		if len(os.Args) == 2 || os.Args[1] == "-h" {
+			fmt.Println(accountUsage)
+			return
+		}
+		if os.Args[2] == "print" {
+			cli.PrintChain()
+			return
+		}
+		if os.Args[2] == "create" {
+			cli.CreateGenesisBlock()
+			return
+		}
+		fmt.Println(accountUsage)
 	}
 	if os.Args[1] == "help" {
 		fmt.Println(usage)
